@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  /* Große Standardschrift für bessere Lesbarkeit (Barrierefreiheit). */
+  font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sichtbarer Fokus für Tastaturnutzer. */
+:focus-visible {
+  outline: 3px solid #0b7285;
+  outline-offset: 2px;
+}
+
+/* prefers-reduced-motion respektieren (Prompt 6). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -205,3 +205,32 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+Verspaetete Abgabe - DDM_concept_Wilks_Mueller_Brodtmann.pdf
+SignBridge_Logikbaustein_Konzept.md
+
+# ──────────────────────────────────────────────────────────────
+# Node / Vite / Frontend (SignBridge)
+#   Diese Artefakte werden lokal erzeugt (npm install / build) und gehören
+#   NICHT in die Versionsverwaltung — sie verursachen die ~25k Änderungen.
+# ──────────────────────────────────────────────────────────────
+
+# Abhängigkeiten (per `npm install` lokal installiert)
+node_modules/
+
+# Build-Output & Caches (per `npm run build` / Dev-Server lokal erzeugt)
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+
+# Logs der Paketmanager
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Betriebssystem-/Editor-Artefakte
+.DS_Store
+Thumbs.db
+*.local

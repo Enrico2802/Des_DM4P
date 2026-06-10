@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" role="img" aria-label="Gebärde bitte">
+  <rect width="200" height="240" rx="18" fill="#ffffff" stroke="#0b7285" stroke-width="3"/>
+  <rect x="10" y="10" width="180" height="160" rx="12" fill="#e6fcf5"/>
+  <rect x="14" y="16" width="44" height="20" rx="10" fill="#0b7285"/>
+  <text x="36" y="31" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">DGS</text>
+  
+    <g transform="translate(100 96)" fill="#0b7285" opacity="0.9">
+      <rect x="-34" y="-6" width="68" height="58" rx="22" />
+      <rect x="-30" y="-54" width="13" height="60" rx="6" />
+      <rect x="-13" y="-66" width="13" height="72" rx="6" />
+      <rect x="4"   y="-64" width="13" height="70" rx="6" />
+      <rect x="21"  y="-50" width="13" height="56" rx="6" />
+      <rect x="-52" y="-2" width="40" height="13" rx="6" transform="rotate(-35 -32 4)" />
+    </g>
+  <text x="100" y="208" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#0b7285" text-anchor="middle">bitte</text>
+</svg>

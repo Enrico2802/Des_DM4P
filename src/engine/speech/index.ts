@@ -15,7 +15,7 @@
  * (`createRecognition`), sodass Restart- und SegmentId-Logik gegen einen Mock
  * getestet werden können.
  */
-import type { TranscriptSegment } from '../../types';
+import type { TranscriptSegment } from '../types';
 
 export type CaptureState = 'idle' | 'listening' | 'error';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalize, DEFAULT_FILLERS } from './index';
-import type { TranscriptSegment } from '../../types';
+import type { TranscriptSegment } from '../types';
 
 function seg(text: string, isFinal = true): TranscriptSegment {
   return { text, isFinal, timestamp: 0 };

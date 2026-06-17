@@ -14,7 +14,7 @@
  *
  * Der Timer ist injizierbar, damit Tests mit Fake-Timern arbeiten können.
  */
-import type { SignItem } from '../../types';
+import type { SignItem } from '../types';
 
 /** Schmale Timer-Abstraktion (Default: globaler setTimeout/clearTimeout). */
 export interface TimerLike {

@@ -1,105 +1,101 @@
-# SignBridge — Speech Becomes Sign
+# SignBridge — Sprache wird Gebärde
 
-Browser-basierte App, die gesprochene Sprache in Echtzeit in DGS-Gebärdenbilder
+Browser-App, die gesprochene Sprache in Echtzeit in **DGS-Gebärdenbilder**
 übersetzt. Umsetzung nach dem Logikbaustein-Konzept (Wilks / Müller / Brodtmann).
 
-> **Fokus dieser Umsetzung:** der **Logikteil** (B0–B5) ist vollständig, isoliert
-> und unit-getestet. Die UI (B6) ist eine bewusst schlanke Test-Oberfläche.
+Dieses Repository enthält die **vollständige App**:
+
+- den **Logikteil B0–B5 / B1** (`src/engine`) — reines, isoliert unit-getestetes
+  TypeScript **ohne Framework**. Das ist der eigentliche Kern und die Priorität
+  des Projekts.
+- das **Angular-Frontend** (`src/app`) — die echte Benutzeroberfläche (Topbar,
+  Eingabe, animierter Gebärden-Renderer mit anime.js, Themes, Sounds), die die
+  Engine über schlanke Angular-Services nutzt.
+
+> Früher gab es ein React-Mock-UI und ein separates Angular-Mock-Frontend. Beide
+> Mocks sind abgelöst: Das Angular-Frontend ist hier ins Repo gezogen und nutzt
+> jetzt die **echte** Engine (echtes deutsches Mikrofon, echte DGS-Auflösung mit
+> echten Gebärden-SVGs, B5-Timing) statt seiner früheren Platzhalter-Services.
 
 ---
 
 ## Architektur — Bausteine B0–B8
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     B7 SessionController                           │
-│              (Orchestrierung + State Machine)                      │
-│                useSignBridge()  ·  src/modules/session             │
-└──────────────────────────────────────────────────────────────────┘
-     │            │             │              │            │
-┌─────────┐ ┌──────────┐ ┌────────────┐ ┌───────────┐ ┌──────────┐
-│ B1      │→│ B2       │→│ B3         │→│ B5        │→│ B6       │
-│ Speech  │ │ Text-    │ │ Sign-      │ │ Display-  │ │ Sign-    │
-│ Capture │ │ Normali- │ │ Resolver   │ │ Queue     │ │ Renderer │
-│ (STT)   │ │ zer      │ │            │ │ (Timing)  │ │ (UI)     │
-└─────────┘ └──────────┘ └─────┬──────┘ └───────────┘ └──────────┘
-                               │ Fallback
-                         ┌─────▼──────┐      ┌────────────────────┐
-                         │ B4 Finger- │      │ B0 Dictionary-     │
-                         │ spelling   │      │ Loader (SignDict)  │
-                         └────────────┘      └────────────────────┘
-                                             ┌────────────────────┐
-                                             │ B8 SettingsStore   │
-                                             └────────────────────┘
-```
-
 **Grundprinzip:** Jeder Baustein hat eine definierte Ein-/Ausgabe und kennt die
-anderen nicht. Gekoppelt wird nur über die Typen in [`src/types.ts`](src/types.ts);
-verdrahtet wird ausschließlich vom SessionController (B7). Dadurch ist jeder
-Baustein isoliert testbar und austauschbar (PNG → GIF → 3D-Avatar betrifft nur B6/B0).
+anderen nicht. Gekoppelt wird nur über die Typen in
+[`src/engine/types.ts`](src/engine/types.ts); verdrahtet wird ausschließlich vom
+SessionController (B7). Dadurch ist jeder Baustein isoliert testbar und
+austauschbar (PNG → GIF → 3D-Avatar betrifft nur B6/B0).
 
-| Baustein | Datei | Aufgabe | Browser-API? | Getestet |
-|----------|-------|---------|:---:|:---:|
-| **B0** DictionaryLoader | [`src/modules/dictionary`](src/modules/dictionary/index.ts) | JSON laden, validieren, O(1)-Index, IndexedDB-Cache | – | ✅ |
-| **B1** SpeechCapture | [`src/modules/speech`](src/modules/speech/index.ts) | Web Speech API kapseln, Auto-Restart, stabile segmentId | ✅ | ✅ (Mock) |
-| **B2** TextNormalizer | [`src/modules/normalizer`](src/modules/normalizer/index.ts) | Segment → Token[] (rein) | – | ✅ |
-| **B3** SignResolver | [`src/modules/resolver`](src/modules/resolver/index.ts) | Token → SignItem, Lemma-Kaskade (rein) | – | ✅ |
-| **B4** FingerspellingEngine | [`src/modules/fingerspelling`](src/modules/fingerspelling/index.ts) | Wort → Fingeralphabet (rein) | – | ✅ |
-| **B5** DisplayQueue | [`src/modules/queue`](src/modules/queue/index.ts) | Timing, Backpressure, Interim-Korrektur | – | ✅ (Fake-Timer) |
-| **B6** SignRenderer | [`src/components`](src/components/) | UI: Anzeige, Verlauf, Steuerung | ✅ | – |
-| **B7** SessionController | [`src/modules/session`](src/modules/session/index.ts) | Orchestrierung, State Machine | ✅ | – |
-| **B8** SettingsStore | [`src/modules/settings`](src/modules/settings/index.tsx) | Settings + localStorage | ✅ | – |
+| Baustein | Ort | Aufgabe | Getestet |
+|----------|-----|---------|:---:|
+| **B0** DictionaryLoader | [`src/engine/dictionary`](src/engine/dictionary/index.ts) | JSON laden, validieren, O(1)-Index, IndexedDB-Cache | ✅ |
+| **B1** SpeechCapture | [`src/engine/speech`](src/engine/speech/index.ts) | Web Speech API kapseln, Auto-Restart, stabile segmentId | ✅ (Mock) |
+| **B2** TextNormalizer | [`src/engine/normalizer`](src/engine/normalizer/index.ts) | Segment → Token[] (rein) | ✅ |
+| **B3** SignResolver | [`src/engine/resolver`](src/engine/resolver/index.ts) | Token → SignItem, Lemma-Kaskade (rein) | ✅ |
+| **B4** FingerspellingEngine | [`src/engine/fingerspelling`](src/engine/fingerspelling/index.ts) | Wort → Fingeralphabet (rein) | ✅ |
+| **B5** DisplayQueue | [`src/engine/queue`](src/engine/queue/index.ts) | Timing, Backpressure, Interim-Korrektur | ✅ |
+| **B6** SignRenderer | [`src/app/components/output-zone`](src/app/components/output-zone/) | Angular-UI: Anzeige, Layouts, anime.js | – |
+| **B7** SessionController | [`src/app/services/session.service.ts`](src/app/services/session.service.ts) | Orchestrierung B1→B2/B3/B4→B5 (Angular-Signals) | – |
+| **B8** Settings/Theme | [`src/app/services`](src/app/services/) | Theme + Sounds (`theme.service`, `sound.service`) | – |
 
 ### Datenfluss
 
 ```
 Mikrofon ─▶ B1 ─(TranscriptSegment, segmentId)─▶ B2 ─(Token[])─▶ B3 ─(SignItem)─▶ B5 ─▶ B6
                                                               └─miss─▶ B4 (Fingeralphabet)
+Text/Upload ──────────────────────────────────▶ B2 ─▶ B3/B4 ─(SignItem[])────────────▶ B6 (Batch)
 ```
 
 Die `segmentId` wird durch die ganze Pipeline geführt: Die Web Speech API
-korrigiert Interim-Ergebnisse rückwirkend, deshalb kann B5 über die segmentId die
-noch nicht angezeigten Items eines Satzes ersetzen (`replaceSegment`).
+korrigiert Interim-Ergebnisse rückwirkend, deshalb ersetzt B5 über die segmentId
+die noch nicht angezeigten Items eines Satzes (`replaceSegment`).
+
+**Angular-Anbindung:**
+[`SignPipelineService`](src/app/services/sign-pipeline.service.ts) kapselt
+B0+B2+B3+B4 (`toSigns(text)`), [`RecognitionService`](src/app/services/recognition.service.ts)
+kapselt B1, [`SessionService`](src/app/services/session.service.ts) verdrahtet
+alles und stellt der UI Signals bereit.
 
 ---
 
 ## Setup
 
 ```bash
-npm install
-npm run generate:assets   # erzeugt Platzhalter-Bilder unter public/
-npm run dev               # Dev-Server (Chrome/Edge für Mikrofon empfohlen)
+npm install        # bei Zertifikats-/Peer-Problemen: npm run install:legacy
+npm start          # Dev-Server → http://localhost:4200 (Chrome/Edge fürs Mikrofon)
 ```
 
 Weitere Skripte:
 
 ```bash
-npm test          # alle Unit-Tests (Vitest)
+npm test           # Engine-Unit-Tests (Vitest, B0–B5/B1)
 npm run test:watch
-npm run typecheck # tsc --noEmit
-npm run build     # Produktions-Build
+npm run typecheck  # tsc --noEmit (App + Engine)
+npm run build      # Produktions-Build → dist/signbridge
+npm run generate:assets   # Platzhalter-SVGs unter public/ neu erzeugen
 ```
 
 ### Testen ohne Mikrofon
 
-- **Texteingabe:** Das Eingabefeld unten füttert dieselbe Pipeline wie das
-  Mikrofon — ideal zum Testen der Logik im Browser.
-- **Demo-Modus:** `http://localhost:5173/?demo=1` spielt eine deutsche
-  Beispiel-Q&A zeitgesteuert ein (inkl. Interim-Korrektur und Fingerspelling
-  eines unbekannten Namens).
+- **Texteingabe:** Das Eingabefeld unter dem Mikrofon füttert dieselbe Pipeline —
+  ideal zum Testen der Logik im Browser (z. B. „hallo danke", oder ein Name fürs
+  Fingeralphabet).
+- **Datei-Upload:** Eine `.txt`-Datei wird als Eingabe gelesen.
 
 ---
 
 ## Bilddaten
 
 Die mitgelieferten SVGs unter `public/signs/` und `public/alphabet/` sind
-**beschriftete Platzhalter**, keine echten DGS-Gebärden — damit die Test-UI
-offline voll funktioniert. Neu erzeugen mit `npm run generate:assets`.
+**beschriftete Platzhalter**, keine echten DGS-Gebärden — damit die UI offline
+voll funktioniert. Über die Angular-Asset-Pipeline (`angular.json`) werden sie
+unter den absoluten Pfaden `/signs/…`, `/alphabet/…` und `/dictionary.json`
+ausgeliefert, die die Engine erwartet.
 
 **Echte SignDict-Daten einbinden:** PNG/SVG/Video nach `public/signs` legen und in
 [`public/dictionary.json`](public/dictionary.json) die `imageUrl` darauf zeigen
-lassen. Die Logik (B0–B5) bleibt unverändert. Fingeralphabet-Konvention:
-`/alphabet/<zeichen>.svg` (inkl. `ä`, `ö`, `ü`, `ß`, `sch`, `ch`, `0`–`9`).
+lassen. Die Logik (B0–B5) bleibt unverändert.
 
 ---
 
@@ -107,18 +103,6 @@ lassen. Die Logik (B0–B5) bleibt unverändert. Fingeralphabet-Konvention:
 
 - **Web Speech API:** Voll unterstützt in **Chrome/Edge**. **Firefox** hat keine
   Unterstützung, **Safari** nur eingeschränkt. Nicht unterstützte Browser zeigen
-  automatisch das Texteingabe-Fallback.
+  automatisch den Texteingabe-Hinweis.
 - Chrome beendet die Erkennung nach ~60 s Stille → B1 startet automatisch neu.
 - Mikrofonzugriff erfordert HTTPS (oder `localhost`).
-
----
-
-## Implementierungsreihenfolge (umgesetzt)
-
-| Phase | Bausteine | Status |
-|-------|-----------|:---:|
-| 1 | B0 + B2 + B3 + B4 — Kernlogik ohne Browser-APIs | ✅ |
-| 2 | B5 — Timing/Queue (Fake-Timer-Tests) | ✅ |
-| 3 | B1 — Spracherkennung (Chrome/Edge) | ✅ |
-| 4 | B7 + B6 + B8 — verdrahtet, lauffähige App | ✅ |
-| 5 | Roadmap: imageUrl → GIF/Video → Three.js-Avatar | ⏳ (nur B6/B0) |

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Dictionary, validateEntries, loadDictionary } from './index';
-import type { DictEntry } from '../../types';
+import type { DictEntry } from '../types';
 
 const ENTRIES: DictEntry[] = [
   { word: 'hallo', imageUrl: '/signs/hallo.svg', variants: ['hi', 'hey'] },

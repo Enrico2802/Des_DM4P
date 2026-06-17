@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolve } from './index';
-import type { DictEntry, LookupFn, Token } from '../../types';
+import type { DictEntry, LookupFn, Token } from '../types';
 
 function tok(normalized: string, raw = normalized): Token {
   return { raw, normalized, segmentId: 's' };

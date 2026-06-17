@@ -9,7 +9,7 @@
  *   3. Fallback an B4 (Fingeralphabet),
  *   4. sonst „unknown" (Wort enthält nicht buchstabierbare Zeichen).
  */
-import type { LookupFn, SignItem, Token } from '../../types';
+import type { LookupFn, SignItem, Token } from '../types';
 import { fingerspell, isFingerspellable } from '../fingerspelling';
 
 /**

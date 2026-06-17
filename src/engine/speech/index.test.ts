@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SpeechCapture } from './index';
 import type { SpeechRecognitionLike, SpeechResultEventLike } from './index';
-import type { TranscriptSegment } from '../../types';
+import type { TranscriptSegment } from '../types';
 
 /** Steuerbarer Mock der Recognition-Engine. */
 class MockRecognition implements SpeechRecognitionLike {

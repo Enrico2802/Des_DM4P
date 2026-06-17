@@ -12,7 +12,7 @@
  *
  * `segmentId` wird an jedes Token gehängt, damit B5 Interim-Tokens ersetzen kann.
  */
-import type { TranscriptSegment, Token } from '../../types';
+import type { TranscriptSegment, Token } from '../types';
 
 /**
  * Was als „Wort" gilt: alle Unicode-Buchstaben (inkl. Umlauten, kleinem ß UND

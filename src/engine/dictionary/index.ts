@@ -9,7 +9,7 @@
  * die App offline startet. Das Caching ist defensiv — fehlt IndexedDB (z. B. in
  * Tests/SSR) oder schlägt fehl, wird es still übersprungen.
  */
-import type { DictEntry, LookupFn } from '../../types';
+import type { DictEntry, LookupFn } from '../types';
 
 /** Schlüssel-Normalisierung (kleingeschrieben, NFC) — identisch zu B2. */
 function key(word: string): string {
@@ -28,23 +28,29 @@ export function validateEntries(data: unknown): DictEntry[] {
     if (typeof raw !== 'object' || raw === null) {
       throw new Error(`Dictionary: Eintrag ${i} ist kein Objekt.`);
     }
+    // Bracket-Zugriff statt Punkt-Notation: Angulars tsconfig nutzt
+    // `noPropertyAccessFromIndexSignature`, was Punkt-Zugriffe auf
+    // Record<string, unknown> verbietet.
     const entry = raw as Record<string, unknown>;
-    if (typeof entry.word !== 'string' || entry.word.length === 0) {
+    const word = entry['word'];
+    const imageUrl = entry['imageUrl'];
+    const variants = entry['variants'];
+    if (typeof word !== 'string' || word.length === 0) {
       throw new Error(`Dictionary: Eintrag ${i} hat kein gültiges "word".`);
     }
-    if (typeof entry.imageUrl !== 'string' || entry.imageUrl.length === 0) {
-      throw new Error(`Dictionary: Eintrag "${entry.word}" hat kein gültiges "imageUrl".`);
+    if (typeof imageUrl !== 'string' || imageUrl.length === 0) {
+      throw new Error(`Dictionary: Eintrag "${word}" hat kein gültiges "imageUrl".`);
     }
     if (
-      entry.variants !== undefined &&
-      !(Array.isArray(entry.variants) && entry.variants.every((v) => typeof v === 'string'))
+      variants !== undefined &&
+      !(Array.isArray(variants) && variants.every((v) => typeof v === 'string'))
     ) {
-      throw new Error(`Dictionary: Eintrag "${entry.word}" hat ungültige "variants".`);
+      throw new Error(`Dictionary: Eintrag "${word}" hat ungültige "variants".`);
     }
     return {
-      word: entry.word,
-      imageUrl: entry.imageUrl,
-      ...(entry.variants ? { variants: entry.variants as string[] } : {}),
+      word,
+      imageUrl,
+      ...(variants ? { variants: variants as string[] } : {}),
     };
   });
 }

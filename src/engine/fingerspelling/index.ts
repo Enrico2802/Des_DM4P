@@ -9,7 +9,7 @@
  *
  * Reine Funktion. Bildpfad-Konvention: /alphabet/<zeichen>.svg
  */
-import type { FingerLetter, SignItem, Token } from '../../types';
+import type { FingerLetter, SignItem, Token } from '../types';
 
 /** Verzeichnis der Fingeralphabet-Bilder (unter dem Web-Root / `public/`). */
 export const ALPHABET_BASE = '/alphabet';

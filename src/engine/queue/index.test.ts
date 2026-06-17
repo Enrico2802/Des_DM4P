@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DisplayQueue } from './index';
-import type { SignItem, Token } from '../../types';
+import type { SignItem, Token } from '../types';
 
 function tok(normalized: string, segmentId = 's'): Token {
   return { raw: normalized, normalized, segmentId };

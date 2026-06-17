@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fingerspell, isFingerspellable, ALPHABET_BASE } from './index';
-import type { Token } from '../../types';
+import type { Token } from '../types';
 
 function tok(normalized: string): Token {
   return { raw: normalized, normalized, segmentId: 's' };

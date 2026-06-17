@@ -224,6 +224,10 @@ dist-ssr/
 .vite/
 *.tsbuildinfo
 
+# Angular (Build-Cache & TS-Zwischenausgabe)
+.angular/
+/out-tsc/
+
 # Logs der Paketmanager
 npm-debug.log*
 yarn-debug.log*
@@ -234,3 +238,5 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 *.local
+ISSUE-2-demo-modus.md
+OFFENE_PUNKTE.md

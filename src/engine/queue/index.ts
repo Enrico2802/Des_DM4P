@@ -66,7 +66,7 @@ export class DisplayQueue {
   private msPerSign: number;
   private readonly msPerLetter: number;
   private readonly maxQueue: number;
-  private readonly maxHistory: number;
+  private maxHistory: number;
   private readonly timer: TimerLike;
 
   private readonly listeners = new Set<TickListener>();
@@ -171,6 +171,17 @@ export class DisplayQueue {
   /** Setzt die Anzeigegeschwindigkeit pro Gebärde (B8 SettingsStore). */
   setSpeed(msPerSign: number): void {
     this.msPerSign = msPerSign;
+  }
+
+  /**
+   * Setzt die maximale Verlaufslänge (B8 SettingsStore) und kürzt einen bereits
+   * zu langen Verlauf sofort auf das neue Limit.
+   */
+  setMaxHistory(maxHistory: number): void {
+    this.maxHistory = Math.max(1, Math.floor(maxHistory));
+    if (this.historyBuf.length > this.maxHistory) {
+      this.historyBuf.splice(0, this.historyBuf.length - this.maxHistory);
+    }
   }
 
   // -- intern ------------------------------------------------------------------

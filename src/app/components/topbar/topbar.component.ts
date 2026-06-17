@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
 import { ThemeService } from "../../services/theme.service";
+import { SettingsComponent } from "../settings/settings.component";
 
 @Component({
   selector: "sb-topbar",
   standalone: true,
+  imports: [SettingsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="topbar">
@@ -34,10 +36,11 @@ import { ThemeService } from "../../services/theme.service";
         <span class="badge">DGS</span>
       </div>
       <div class="topbar-actions">
+        <sb-settings />
         <button
           class="icon-btn theme-toggle"
-          aria-label="Toggle light / dark theme"
-          title="Toggle theme"
+          aria-label="Helles / dunkles Thema umschalten"
+          title="Thema umschalten"
           (click)="theme.toggle()"
         >
           <svg

@@ -1110,3 +1110,81 @@ html[data-type="editorial"] .headline {
 .live-history .sign .gloss {
   font-size: 15px;
 }
+
+/* ============================================================
+   Einstellungen-Panel (B8 SettingsStore)
+   ============================================================ */
+.settings {
+  position: relative;
+}
+.icon-btn.active {
+  color: var(--text);
+  border-color: var(--primary);
+}
+.settings-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg, 16px);
+  box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.18));
+}
+.settings-panel h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.set-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.set-row > span b {
+  color: var(--text);
+  font-weight: 700;
+}
+.set-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+.set-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.set-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+.set-check small {
+  color: var(--text-muted);
+}
+.set-reset {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.set-reset:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}

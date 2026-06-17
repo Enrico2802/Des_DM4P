@@ -1,8 +1,9 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { loadDictionary, Dictionary } from '../../engine/dictionary';
 import { normalize } from '../../engine/normalizer';
 import { resolve } from '../../engine/resolver';
 import type { LookupFn, SignItem } from '../../engine/types';
+import { SettingsService } from './settings.service';
 
 /**
  * SIGN-PIPELINE — die echte Übersetzungslogik der Engine als Angular-Service.
@@ -16,6 +17,7 @@ import type { LookupFn, SignItem } from '../../engine/types';
  */
 @Injectable({ providedIn: 'root' })
 export class SignPipelineService {
+  private readonly settings = inject(SettingsService);
   private dict: Dictionary | null = null;
   private readonly ready: Promise<void>;
 
@@ -52,7 +54,9 @@ export class SignPipelineService {
    */
   toSigns(text: string, segmentId = 'manual'): SignItem[] {
     const segment = { text, isFinal: true, timestamp: Date.now() };
-    const tokens = normalize(segment, segmentId);
+    const tokens = normalize(segment, segmentId, {
+      filterFillers: this.settings.fillerFilter(),
+    });
     const lookup = this.lookup;
     return tokens.map((token) => resolve(token, lookup));
   }

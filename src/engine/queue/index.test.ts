@@ -96,6 +96,16 @@ describe('B5 DisplayQueue', () => {
     expect(q.history.map((h) => h.token.normalized)).toEqual(['w3', 'w4', 'w5']);
   });
 
+  it('setMaxHistory kürzt einen bereits zu langen Verlauf sofort (B8)', () => {
+    const q = new DisplayQueue({ maxHistory: 50, msPerSign: 100 });
+    q.enqueue(Array.from({ length: 5 }, (_, i) => sign(`w${i}`)));
+    vi.advanceTimersByTime(100 * 5);
+    expect(q.history).toHaveLength(5);
+
+    q.setMaxHistory(2);
+    expect(q.history.map((h) => h.token.normalized)).toEqual(['w3', 'w4']);
+  });
+
   describe('Backpressure (> maxQueue)', () => {
     it('verwirft die ältesten NICHT-finalen Items', () => {
       const q = new DisplayQueue({ maxQueue: 3, msPerSign: 1000 });

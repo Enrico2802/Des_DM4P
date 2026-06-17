@@ -3,6 +3,7 @@ import { DisplayQueue } from '../../engine/queue';
 import type { SignItem } from '../../engine/types';
 import { RecognitionService } from './recognition.service';
 import { SignPipelineService } from './sign-pipeline.service';
+import { SettingsService } from './settings.service';
 
 /**
  * SESSION-CONTROLLER (B7) — der EINZIGE Ort, der alle Bausteine verdrahtet.
@@ -19,9 +20,13 @@ import { SignPipelineService } from './sign-pipeline.service';
 export class SessionService {
   private readonly rec = inject(RecognitionService);
   private readonly pipeline = inject(SignPipelineService);
+  private readonly settings = inject(SettingsService);
 
   // B5 — Timing/Backpressure/Interim-Korrektur für den Live-Mikrofon-Pfad.
-  private readonly queue = new DisplayQueue({ msPerSign: 600, maxHistory: 50 });
+  private readonly queue = new DisplayQueue({
+    msPerSign: this.settings.msPerSign(),
+    maxHistory: this.settings.historyLength(),
+  });
 
   /** Batch-Ergebnis (getippter/hochgeladener Text). */
   readonly items = signal<SignItem[]>([]);
@@ -58,15 +63,36 @@ export class SessionService {
       this.isPlaceholder.set(false);
       const signs = this.pipeline.toSigns(text, segmentId);
       this.queue.replaceSegment(segmentId, signs, isFinal);
+      this.preloadUpcoming();
     });
 
     this.rec.errors.subscribe((msg) => this.error.set(msg));
+
+    // B8 → B5: Live-Tempo und Verlaufslänge nachführen.
+    effect(() => this.queue.setSpeed(this.settings.msPerSign()));
+    effect(() => this.queue.setMaxHistory(this.settings.historyLength()));
 
     // Wörterbuch-Ladefehler aus der Pipeline übernehmen.
     effect(() => {
       const e = this.pipeline.error();
       if (e) this.error.set(e);
     });
+  }
+
+  /**
+   * Bild-Preloading (B6): lädt die Bilder der nächsten 3 noch nicht angezeigten
+   * Gebärden vorab, damit der Live-Wechsel ruckelfrei ist. Defensiv — ohne
+   * `Image` (SSR/Tests) passiert nichts.
+   */
+  private preloadUpcoming(count = 3): void {
+    if (typeof Image === 'undefined') return;
+    for (const item of this.queue.upcoming(count)) {
+      const urls = item.kind === 'sign' ? [item.imageUrl] : item.kind === 'fingerspell' ? item.letters.map((l) => l.imageUrl) : [];
+      for (const url of urls) {
+        const img = new Image();
+        img.src = url;
+      }
+    }
   }
 
   /** Live-Mikrofon umschalten. */

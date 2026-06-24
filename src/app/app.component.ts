@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
 import { TopbarComponent } from "./components/topbar/topbar.component";
 import { InputZoneComponent } from "./components/input-zone/input-zone.component";
 import { OutputZoneComponent } from "./components/output-zone/output-zone.component";
+import { DemoPlayerComponent } from "./components/demo-player/demo-player.component";
 import { SessionService } from "./services/session.service";
 
 /**
@@ -12,7 +13,7 @@ import { SessionService } from "./services/session.service";
 @Component({
   selector: "sb-root",
   standalone: true,
-  imports: [TopbarComponent, InputZoneComponent, OutputZoneComponent],
+  imports: [TopbarComponent, InputZoneComponent, OutputZoneComponent, DemoPlayerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="app" data-screen-label="Signbridge main">
@@ -29,6 +30,7 @@ import { SessionService } from "./services/session.service";
           [transcriptIsPlaceholder]="session.isPlaceholder()"
         />
       </main>
+      <sb-demo-player />
     </div>
   `,
 })

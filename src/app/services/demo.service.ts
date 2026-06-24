@@ -1,21 +1,15 @@
 import { Injectable, computed, signal } from '@angular/core';
 
-/** Ein einzelnes DGS-Zeichen des Demo-Modus als Videoclip. */
-export interface DemoClip {
-  /** Beschriftung (Originalwort) für Caption + Fortschrittsleiste. */
-  label: string;
-  /** Pfad zur .mov-Datei unter /public/demo. */
-  videoUrl: string;
-}
-
 /**
- * DEMO-MODUS (offline) — spielt einen festen Beispielsatz als Folge von
- * DGS-Zeichen ab, OHNE Spracherkennung, Wörterbuch oder sonstige API-Aufrufe.
+ * DEMO-MODUS (offline) — spielt EIN festes Beispielvideo (.mov) ab und schaltet
+ * die DGS-Glossen darunter zeitgesteuert weiter, OHNE Spracherkennung,
+ * Wörterbuch oder sonstige API-Aufrufe.
  *
- * Die Zeichen liegen als .mov-Dateien in /public/demo (Hintergrund ausgekeyed,
- * in unserem Fall schlicht schwarz). Der {@link DemoPlayerComponent} blendet ein
- * Overlay ein, zeigt {@link sentence} als Transkript und spielt {@link glosses}
- * der Reihe nach ab — jeweils beim `ended`-Event des Videos das nächste Zeichen.
+ * Das Video liegt unter /public/demo/demo.mov (Hintergrund schwarz) und enthält
+ * die komplette gebärdete Phrase am Stück (~17 s). Der {@link DemoPlayerComponent}
+ * blendet ein Overlay ein, zeigt {@link sentence} als Transkript, spielt das Video
+ * und hebt anhand der Wiedergabeposition die passende Glosse in {@link glosses}
+ * hervor — die Labels werden also gleichmäßig über die Videolänge verteilt.
  */
 @Injectable({ providedIn: 'root' })
 export class DemoService {
@@ -25,54 +19,30 @@ export class DemoService {
     'bekommen habe: Dann habt ihr es nicht verstanden, und gleichzeitig frage ' +
     'ich mich, ob ihr überhaupt zuhört.';
 
+  /** Pfad zum einzelnen Demo-Video unter /public/demo. */
+  readonly videoUrl = '/demo/demo.mov';
+
   /**
-   * Die DGS-Zeichenfolge als .mov-Clips. Entspricht der Glossen-Notation
+   * Die DGS-Glossen in der Reihenfolge des Videos. Entspricht der Glossen-Notation
    * „Wie ich gedacht habe die Frage zeigt alle haben nicht verstanden |
    *   ich frage mich ob ihr zuhört". Das „|" markiert dabei nur die Phrasen-
-   * grenze und ist kein eigenes Zeichen.
+   * grenze und ist kein eigenes Zeichen. Die Labels werden zeitlich gleichmäßig
+   * über die Videolänge (~17 s) verteilt.
    */
-  readonly glosses: readonly DemoClip[] = [
-    { label: 'Wie', videoUrl: '/demo/wie.mov' },
-    { label: 'ich', videoUrl: '/demo/ich.mov' },
-    { label: 'gedacht', videoUrl: '/demo/gedacht.mov' },
-    { label: 'habe', videoUrl: '/demo/habe.mov' },
-    { label: 'die', videoUrl: '/demo/die.mov' },
-    { label: 'Frage', videoUrl: '/demo/frage.mov' },
-    { label: 'zeigt', videoUrl: '/demo/zeigt.mov' },
-    { label: 'alle', videoUrl: '/demo/alle.mov' },
-    { label: 'haben', videoUrl: '/demo/haben.mov' },
-    { label: 'nicht', videoUrl: '/demo/nicht.mov' },
-    { label: 'verstanden', videoUrl: '/demo/verstanden.mov' },
-    { label: 'ich', videoUrl: '/demo/ich.mov' },
-    { label: 'frage', videoUrl: '/demo/frage.mov' },
-    { label: 'mich', videoUrl: '/demo/mich.mov' },
-    { label: 'ob', videoUrl: '/demo/ob.mov' },
-    { label: 'ihr', videoUrl: '/demo/ihr.mov' },
-    { label: 'zuhört', videoUrl: '/demo/zuhoert.mov' },
-    {label: 'Wie ich gedacht habe die Frage zeigt alle haben nicht verstanden ich frage mich ob ihr zuhört. Das', videoUrl: '/demo/demo.mov' }
+  readonly glosses: readonly string[] = [
+    'Wie', 'ich', 'gedacht', 'habe', 'die', 'Frage', 'zeigt', 'alle', 'haben',
+    'nicht', 'verstanden', 'ich', 'frage', 'mich', 'ob', 'ihr', 'zuhört',
   ];
-
-  /**
-   * Ziel-Gesamtdauer der Zeichenfolge in ms (im gewünschten Bereich ~8–12 s).
-   * Die Anzeigedauer pro Zeichen ({@link msPerClip}) wird daraus abgeleitet, damit
-   * die Wiedergabe unabhängig von den einzelnen Clip-Längen gleichmäßig läuft.
-   */
-  readonly totalDurationMs = 4_000;
-
-  /** Anzeigedauer eines einzelnen Zeichens (Gesamtdauer / Anzahl Zeichen). */
-  get msPerClip(): number {
-    return Math.round(this.totalDurationMs / this.glosses.length);
-  }
 
   /** Ob der Demo-Modus gerade läuft (steuert das Overlay). */
   readonly active = signal(false);
-  /** Index des aktuell abgespielten Zeichens in {@link glosses}. */
+  /** Index der aktuell hervorgehobenen Glosse in {@link glosses}. */
   readonly index = signal(0);
-  /** Ob die Sequenz durchgelaufen ist (letztes Bild bleibt stehen). */
+  /** Ob das Video durchgelaufen ist (letztes Bild bleibt stehen). */
   readonly finished = signal(false);
 
-  /** Aktuell abzuspielender Clip (null außerhalb des Demo-Modus). */
-  readonly currentClip = computed<DemoClip | null>(() => this.glosses[this.index()] ?? null);
+  /** Aktuell hervorgehobene Glosse (null außerhalb des Demo-Modus). */
+  readonly currentLabel = computed<string | null>(() => this.glosses[this.index()] ?? null);
 
   /** Demo-Modus von vorne starten. */
   start(): void {
@@ -89,17 +59,23 @@ export class DemoService {
   }
 
   /**
-   * Nächstes Zeichen abspielen (vom Video `ended`-Event getriggert). Am Ende der
-   * Sequenz wird angehalten und {@link finished} gesetzt — das letzte Bild bleibt
-   * stehen, bis erneut abgespielt oder geschlossen wird.
+   * Glosse zur aktuellen Wiedergabeposition setzen. `progress` ist der Anteil
+   * 0…1 (currentTime / duration); daraus wird der Label-Index abgeleitet, sodass
+   * die Glossen gleichmäßig über die Videolänge durchlaufen.
    */
-  next(): void {
-    const i = this.index();
-    if (i < this.glosses.length - 1) this.index.set(i + 1);
-    else this.finished.set(true);
+  syncToProgress(progress: number): void {
+    const n = this.glosses.length;
+    const i = Math.min(n - 1, Math.max(0, Math.floor(progress * n)));
+    if (i !== this.index()) this.index.set(i);
   }
 
-  /** Die Zeichenfolge erneut von vorne abspielen. */
+  /** Vom `ended`-Event des Videos: Sequenz ist durchgelaufen. */
+  finish(): void {
+    this.index.set(this.glosses.length - 1);
+    this.finished.set(true);
+  }
+
+  /** Das Video erneut von vorne abspielen. */
   replay(): void {
     this.finished.set(false);
     this.index.set(0);

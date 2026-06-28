@@ -6,6 +6,7 @@ import {
   inject,
 } from "@angular/core";
 import { SessionService } from "../../services/session.service";
+import { DemoService } from "../../services/demo.service";
 
 /**
  * INPUT ZONE — Mikrofon (echte Spracherkennung über die SessionService/B1) +
@@ -106,15 +107,36 @@ import { SessionService } from "../../services/session.service";
             (change)="onFile($event)"
           />
         </label>
+
+        <button type="button" class="demo-btn" (click)="startDemo()">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />
+          </svg>
+          Demo abspielen
+        </button>
       </div>
     </section>
   `,
 })
 export class InputZoneComponent {
   readonly session = inject(SessionService);
+  private readonly demo = inject(DemoService);
 
   /** Emittiert getippten oder hochgeladenen Text. */
   @Output() readonly text = new EventEmitter<string>();
+
+  /** Offline-Demo starten — stoppt vorher eine laufende Aufnahme. */
+  startDemo(): void {
+    if (this.session.recording()) this.session.stop();
+    this.demo.start();
+  }
 
   submitText(field: HTMLInputElement): void {
     const value = field.value.trim();

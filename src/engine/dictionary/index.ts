@@ -79,6 +79,11 @@ export class Dictionary {
   /** Schlägt ein Wort nach (case-insensitive). */
   lookup: LookupFn = (word) => this.index.get(key(word)) ?? null;
 
+  /** Alle Lookup-Schlüssel (Grundformen + Varianten) — z. B. für B3.5 Fuzzy-Match. */
+  get keys(): string[] {
+    return [...this.index.keys()];
+  }
+
   /** Anzahl der Lookup-Schlüssel (Grundformen + Varianten). */
   get size(): number {
     return this.index.size;

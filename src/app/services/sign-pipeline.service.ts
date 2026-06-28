@@ -1,7 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { loadDictionary, Dictionary } from '../../engine/dictionary';
-import { normalize } from '../../engine/normalizer';
+import { normalizeWithAlternatives } from '../../engine/normalizer';
 import { resolve } from '../../engine/resolver';
+import { createCorrector, type Corrector } from '../../engine/correction';
 import type { LookupFn, SignItem } from '../../engine/types';
 import { SettingsService } from './settings.service';
 
@@ -19,6 +20,8 @@ import { SettingsService } from './settings.service';
 export class SignPipelineService {
   private readonly settings = inject(SettingsService);
   private dict: Dictionary | null = null;
+  /** B3.5: über den Wörterbuchschlüsseln gebauter Korrektor (Fuzzy/Tabelle). */
+  private corrector: Corrector | null = null;
   private readonly ready: Promise<void>;
 
   /** Ob das Wörterbuch (B0) geladen ist — für die UI (z. B. Lade-Hinweis). */
@@ -31,6 +34,7 @@ export class SignPipelineService {
     this.ready = loadDictionary('/dictionary.json')
       .then((dict) => {
         this.dict = dict;
+        this.corrector = createCorrector(dict.keys);
         this.dictionaryReady.set(true);
       })
       .catch((e: unknown) => {
@@ -51,13 +55,27 @@ export class SignPipelineService {
   /**
    * Text → SignItem[]. Durchläuft B2 (normalize) und B3/B4 (resolve).
    * `segmentId` bindet die Tokens an ihr Segment (für B5-Interim-Korrektur).
+   *
+   * `meta` reicht die Erkennungs-Alternativen und -Konfidenz aus B1 durch, damit
+   * B3 bei einem Fehlgriff eine Hypothese wählen kann, die als Gebärde existiert.
    */
-  toSigns(text: string, segmentId = 'manual'): SignItem[] {
-    const segment = { text, isFinal: true, timestamp: Date.now() };
-    const tokens = normalize(segment, segmentId, {
+  toSigns(
+    text: string,
+    segmentId = 'manual',
+    meta: { alternatives?: string[]; confidence?: number } = {},
+  ): SignItem[] {
+    const segment = {
+      text,
+      isFinal: true,
+      timestamp: Date.now(),
+      ...(meta.alternatives?.length ? { alternatives: meta.alternatives } : {}),
+      ...(typeof meta.confidence === 'number' ? { confidence: meta.confidence } : {}),
+    };
+    const tokens = normalizeWithAlternatives(segment, segmentId, {
       filterFillers: this.settings.fillerFilter(),
     });
     const lookup = this.lookup;
-    return tokens.map((token) => resolve(token, lookup));
+    const correct = this.corrector ?? undefined;
+    return tokens.map((token) => resolve(token, lookup, { correct }));
   }
 }

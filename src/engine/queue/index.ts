@@ -59,6 +59,13 @@ export class DisplayQueue {
   private queue: QueuedItem[] = [];
   private historyBuf: SignItem[] = [];
   private currentItem: SignItem | null = null;
+  /**
+   * Wie viele Items je Segment bereits ANGEZEIGT wurden (in current/history
+   * gewandert). Interim-Updates liefern den ganzen Segmenttext erneut; dieser
+   * Zähler verhindert, dass schon gezeigte Tokens beim Ersetzen erneut
+   * eingereiht werden (sonst Vervielfachung der Ausgabe).
+   */
+  private readonly displayed = new Map<string, number>();
 
   private paused = false;
   private timerHandle: number | null = null;
@@ -112,12 +119,18 @@ export class DisplayQueue {
   }
 
   /**
-   * Ersetzt alle noch NICHT angezeigten Items eines Segments (Interim-Korrektur
-   * der Web Speech API). Existiert das Segment noch nicht in der Queue, wirken
-   * die Items wie ein normales {@link enqueue}.
+   * Aktualisiert ein Segment mit seiner VOLLSTÄNDIGEN aktuellen Token-Folge
+   * (Interim-Korrektur der Web Speech API). `items` ist die komplette Folge des
+   * Segments, nicht nur ein Rest: Bereits angezeigte Tokens am Anfang bleiben
+   * unangetastet, nur die noch wartenden Items werden durch den passenden
+   * Ausschnitt ersetzt. Existiert das Segment noch nicht, wirkt es wie ein
+   * normales {@link enqueue}.
    */
   replaceSegment(segmentId: string, items: SignItem[], isFinal = false): void {
-    const replacements: QueuedItem[] = items.map((item) => ({ item, isFinal }));
+    // Bereits angezeigte Tokens dieses Segments NICHT erneut einreihen.
+    const shown = this.displayed.get(segmentId) ?? 0;
+    const pendingItems = shown > 0 ? items.slice(shown) : items;
+    const replacements: QueuedItem[] = pendingItems.map((item) => ({ item, isFinal }));
 
     // Position des ersten Treffers merken, um die Reihenfolge zu erhalten.
     const firstIdx = this.queue.findIndex((q) => q.item.token.segmentId === segmentId);
@@ -159,6 +172,7 @@ export class DisplayQueue {
     this.queue = [];
     this.historyBuf = [];
     this.currentItem = null;
+    this.displayed.clear();
     this.clearTimer();
   }
 
@@ -234,6 +248,9 @@ export class DisplayQueue {
     if (this.historyBuf.length > this.maxHistory) {
       this.historyBuf.splice(0, this.historyBuf.length - this.maxHistory);
     }
+    // Angezeigt-Zähler des Segments erhöhen (für die Interim-Ersetzung).
+    const segId = next.item.token.segmentId;
+    this.displayed.set(segId, (this.displayed.get(segId) ?? 0) + 1);
     this.notify();
 
     this.scheduleAfter(this.durationOf(next.item));

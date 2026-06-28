@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalize, DEFAULT_FILLERS } from './index';
+import { normalize, normalizeWithAlternatives, DEFAULT_FILLERS } from './index';
 import type { TranscriptSegment } from '../types';
 
 function seg(text: string, isFinal = true): TranscriptSegment {
@@ -77,5 +77,44 @@ describe('B2 TextNormalizer – normalize', () => {
   it('enthält die dokumentierten Standard-Füllwörter', () => {
     expect(DEFAULT_FILLERS).toContain('äh');
     expect(DEFAULT_FILLERS).toContain('quasi');
+  });
+});
+
+describe('B2 TextNormalizer – normalizeWithAlternatives', () => {
+  it('verhält sich ohne Alternativen wie normalize', () => {
+    const tokens = normalizeWithAlternatives(seg('hallo welt'), 's');
+    expect(tokens.map((t) => t.normalized)).toEqual(['hallo', 'welt']);
+    expect(tokens.every((t) => t.candidates === undefined)).toBe(true);
+  });
+
+  it('richtet deckungsgleiche Alternativen pro Position aus (Homophon-Fall)', () => {
+    const s: TranscriptSegment = {
+      ...seg('ich höre häuser'),
+      alternatives: ['ich höre heiser', 'ich höre reiser'],
+    };
+    const tokens = normalizeWithAlternatives(s, 's');
+    expect(tokens.map((t) => t.normalized)).toEqual(['ich', 'höre', 'häuser']);
+    // Position 0/1 identisch in allen Hypothesen → keine Kandidaten:
+    expect(tokens[0]?.candidates).toBeUndefined();
+    expect(tokens[1]?.candidates).toBeUndefined();
+    // Position 2 unterscheidet sich → Kandidaten in Reihenfolge, dedupliziert:
+    expect(tokens[2]?.candidates).toEqual(['heiser', 'reiser']);
+  });
+
+  it('ignoriert Alternativen mit abweichender Tokenzahl (keine Fehlausrichtung)', () => {
+    const s: TranscriptSegment = {
+      ...seg('guten tag'),
+      alternatives: ['guten', 'guten tag zusammen', 'guten abend'],
+    };
+    const tokens = normalizeWithAlternatives(s, 's');
+    // Nur "guten abend" ist deckungsgleich (2 Tokens):
+    expect(tokens[0]?.candidates).toBeUndefined();
+    expect(tokens[1]?.candidates).toEqual(['abend']);
+  });
+
+  it('reicht die Konfidenz an jedes Token durch', () => {
+    const s: TranscriptSegment = { ...seg('hallo welt'), confidence: 0.77 };
+    const tokens = normalizeWithAlternatives(s, 's');
+    expect(tokens.every((t) => t.confidence === 0.77)).toBe(true);
   });
 });

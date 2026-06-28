@@ -10,12 +10,25 @@
 
 /** Ergebnis aus der Spracherkennung (B1 → B2). */
 export interface TranscriptSegment {
-  /** Erkannter Rohtext. */
+  /** Erkannter Rohtext (beste Hypothese der API). */
   text: string;
   /** Web Speech API: interim (false) vs. final (true). */
   isFinal: boolean;
   /** Zeitstempel (ms seit Epoch) der Erkennung. */
   timestamp: number;
+  /**
+   * Weitere ganze Erkennungs-Hypothesen der API (best-first, OHNE die Primär-
+   * hypothese `text`), sofern `maxAlternatives > 1` gesetzt ist. Wird von B2 pro
+   * Token-Position ausgewertet, damit B3 bei einem Fehlgriff eine Hypothese
+   * wählen kann, die als Gebärde existiert (z. B. „heiser" statt „Häuser").
+   */
+  alternatives?: string[];
+  /**
+   * Konfidenz der Primärhypothese (0..1), wie sie die API für FINALE Ergebnisse
+   * liefert. Bei Interim-Ergebnissen meist 0/undefined. Niedrige Werte sind ein
+   * Signal für unsichere Erkennung.
+   */
+  confidence?: number;
 }
 
 /** Normalisiertes Wort (B2 → B3). */
@@ -29,6 +42,14 @@ export interface Token {
    * damit B5 bereits angezeigte Interim-Tokens gezielt ersetzen kann.
    */
   segmentId: string;
+  /**
+   * Alternative normalisierte Formen für DIESE Wortposition, abgeleitet aus den
+   * Erkennungs-Alternativen der API (best-first, ohne `normalized`). B3 probiert
+   * sie, falls die Primärform keine Gebärde trifft.
+   */
+  candidates?: string[];
+  /** Konfidenz der Erkennung (0..1), vom Segment durchgereicht. */
+  confidence?: number;
 }
 
 /** Ein einzelner Fingeralphabet-Buchstabe innerhalb eines fingerspell-Items. */

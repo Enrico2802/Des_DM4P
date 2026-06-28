@@ -140,16 +140,42 @@ describe('B5 DisplayQueue', () => {
   });
 
   describe('replaceSegment (Interim-Korrektur)', () => {
-    it('ersetzt noch nicht angezeigte Items eines Segments', () => {
+    it('ersetzt nur das noch nicht angezeigte Item, nicht das bereits gezeigte', () => {
       const q = new DisplayQueue({ msPerSign: 1000 });
+      const seen: string[] = [];
+      q.onTick((c) => seen.push(c.token.normalized));
       // Segment "seg1" interim: zwei Wörter.
       q.enqueue([sign('hallo', 'seg1'), sign('wlt', 'seg1')], false);
       expect(q.current?.token.normalized).toBe('hallo'); // bereits angezeigt
 
-      // Finale Erkennung korrigiert "wlt" -> "welt" (nur das wartende Item).
-      q.replaceSegment('seg1', [sign('welt', 'seg1')], true);
+      // Finale Erkennung liefert das VOLLE Segment ["hallo","welt"]; "hallo" wurde
+      // schon gezeigt und darf NICHT erneut erscheinen, nur "wlt" -> "welt".
+      q.replaceSegment('seg1', [sign('hallo', 'seg1'), sign('welt', 'seg1')], true);
       vi.advanceTimersByTime(1000);
       expect(q.current?.token.normalized).toBe('welt');
+      expect(seen).toEqual(['hallo', 'welt']); // "hallo" genau einmal
+    });
+
+    it('vervielfacht wachsende Interim-Ergebnisse NICHT ("Test 1 2 3"-Regression)', () => {
+      // Reproduziert den realen Live-Pfad: jedes Interim-Update liefert den
+      // GANZEN bisher erkannten Text an dasselbe Segment.
+      const q = new DisplayQueue({ msPerSign: 100 });
+      const seen: string[] = [];
+      q.onTick((c) => seen.push(c.token.normalized));
+
+      const seg = (words: string[]) => words.map((w) => sign(w, 's'));
+
+      q.replaceSegment('s', seg(['test']), false);
+      vi.advanceTimersByTime(100);
+      q.replaceSegment('s', seg(['test', '1']), false);
+      vi.advanceTimersByTime(100);
+      q.replaceSegment('s', seg(['test', '1', '2']), false);
+      vi.advanceTimersByTime(100);
+      q.replaceSegment('s', seg(['test', '1', '2', '3']), true); // final
+      vi.advanceTimersByTime(100);
+
+      // Genau die erkannte Folge, jede Gebärde genau einmal.
+      expect(seen).toEqual(['test', '1', '2', '3']);
     });
 
     it('verhält sich wie enqueue, wenn das Segment noch nicht existiert', () => {

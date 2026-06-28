@@ -81,4 +81,41 @@ describe('B3 SignResolver – resolve', () => {
     const item = resolve(t, lookup);
     expect(item.token).toBe(t);
   });
+
+  it('(3) wählt eine ASR-Alternative, die als Gebärde existiert', () => {
+    // Primärform "haus2" trifft nichts; Kandidat "haus" ist eine Gebärde.
+    const t: Token = { raw: 'Haus', normalized: 'haus2', segmentId: 's', candidates: ['haus'] };
+    const item = resolve(t, lookup);
+    expect(item.kind).toBe('sign');
+    if (item.kind === 'sign') expect(item.imageUrl).toBe('/signs/haus.svg');
+    expect(item.token).toBe(t); // Original-Token bleibt erhalten
+  });
+
+  it('(3) Primärtreffer hat Vorrang vor Alternativen', () => {
+    const t: Token = { raw: 'hallo', normalized: 'hallo', segmentId: 's', candidates: ['haus'] };
+    const item = resolve(t, lookup);
+    if (item.kind === 'sign') expect(item.imageUrl).toBe('/signs/hallo.svg');
+  });
+
+  it('(3) löst eine Alternative auch über die Lemma-Heuristik auf', () => {
+    // Kandidat "fragen" -> "-n" -> "frage" (im Dictionary).
+    const t: Token = { raw: 'xyz', normalized: 'xyzz', segmentId: 's', candidates: ['fragen'] };
+    const item = resolve(t, lookup);
+    expect(item.kind).toBe('sign');
+    if (item.kind === 'sign') expect(item.imageUrl).toBe('/signs/frage.svg');
+  });
+
+  it('(4) nutzt die Korrektur-Funktion, wenn Primär + Alternativen scheitern', () => {
+    const correct = (w: string) => (w === 'hallu' ? 'hallo' : null);
+    const t = tok('hallu');
+    const item = resolve(t, lookup, { correct });
+    expect(item.kind).toBe('sign');
+    if (item.kind === 'sign') expect(item.imageUrl).toBe('/signs/hallo.svg');
+  });
+
+  it('(4) buchstabiert weiter, wenn die Korrektur kein Wörterbuchwort liefert', () => {
+    const correct = () => 'gibtsnicht';
+    const item = resolve(tok('abcde'), lookup, { correct });
+    expect(item.kind).toBe('fingerspell');
+  });
 });

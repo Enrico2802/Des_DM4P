@@ -10,6 +10,10 @@
  *  - Backpressure: bei > 20 Items zuerst die ältesten NICHT-finalen Items verwerfen,
  *    finale Items bleiben erhalten.
  *  - Interim-Korrektur: noch nicht angezeigte Items eines Segments ersetzen.
+ *  - Finalitäts-Gate: NUR finale Items werden dauerhaft angezeigt. Interim-Items
+ *    (noch nicht von der Erkennung bestätigt) warten in der Queue und können
+ *    jederzeit ersetzt werden. So bleiben voreilig geratene, später revidierte
+ *    Zwischenergebnisse nicht als Dubletten in der History hängen.
  *  - pause/resume/clear.
  *
  * Der Timer ist injizierbar, damit Tests mit Fake-Timern arbeiten können.
@@ -220,11 +224,21 @@ export class DisplayQueue {
     }
   }
 
-  /** Startet die Anzeige, falls nichts läuft und etwas wartet. */
+  /** Startet die Anzeige, falls nichts läuft und ein FINALES Item wartet. */
   private kick(): void {
     if (this.paused || this.timerHandle !== null) return;
-    if (this.queue.length === 0) return;
+    if (!this.frontDisplayable()) return;
     this.advance();
+  }
+
+  /**
+   * Ob das vorderste wartende Item dauerhaft angezeigt werden darf. Nur FINALE
+   * Items werden ausgegeben; ein interim Item am Anfang lässt die Anzeige warten,
+   * bis die Erkennung es bestätigt (oder via {@link replaceSegment} ersetzt).
+   */
+  private frontDisplayable(): boolean {
+    const front = this.queue[0];
+    return front !== undefined && front.isFinal;
   }
 
   /** Plant den nächsten Tick nach `ms`. */
@@ -235,8 +249,13 @@ export class DisplayQueue {
     }, ms);
   }
 
-  /** Zeigt das nächste Item an und plant den Folgetick. */
+  /** Zeigt das nächste FINALE Item an und plant den Folgetick. */
   private advance(): void {
+    // Nur finale Items ausgeben; interim Items am Anfang warten lassen.
+    if (!this.frontDisplayable()) {
+      this.timerHandle = null;
+      return;
+    }
     const next = this.queue.shift();
     if (!next) {
       this.timerHandle = null;

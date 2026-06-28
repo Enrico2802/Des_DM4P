@@ -3,11 +3,20 @@ import { SpeechCapture } from './index';
 import type { SpeechRecognitionLike, SpeechResultEventLike } from './index';
 import type { TranscriptSegment } from '../types';
 
+/** Ein Result-Item: Primär-Transkript plus optionale Alternativen/Konfidenz. */
+interface ResultItem {
+  transcript: string;
+  isFinal: boolean;
+  alternatives?: string[];
+  confidence?: number;
+}
+
 /** Steuerbarer Mock der Recognition-Engine. */
 class MockRecognition implements SpeechRecognitionLike {
   lang = '';
   continuous = false;
   interimResults = false;
+  maxAlternatives = 0;
   onresult: ((e: SpeechResultEventLike) => void) | null = null;
   onend: (() => void) | null = null;
   onerror: ((e: { error: string }) => void) | null = null;
@@ -23,9 +32,19 @@ class MockRecognition implements SpeechRecognitionLike {
   }
 
   // -- Test-Helfer zum Auslösen von Events --
-  emitResult(resultIndex: number, items: Array<{ transcript: string; isFinal: boolean }>): void {
-    const results = items.map((it) => ({ isFinal: it.isFinal, 0: { transcript: it.transcript } }));
-    this.onresult?.({ resultIndex, results });
+  emitResult(resultIndex: number, items: ResultItem[]): void {
+    const results = items.map((it) => {
+      const alts = [it.transcript, ...(it.alternatives ?? [])];
+      const result: Record<number | string, unknown> = {
+        isFinal: it.isFinal,
+        length: alts.length,
+      };
+      alts.forEach((transcript, i) => {
+        result[i] = i === 0 ? { transcript, confidence: it.confidence } : { transcript };
+      });
+      return result;
+    });
+    this.onresult?.({ resultIndex, results } as unknown as SpeechResultEventLike);
   }
   emitEnd(): void {
     this.onend?.();
@@ -42,13 +61,60 @@ function setup() {
 }
 
 describe('B1 SpeechCapture', () => {
-  it('konfiguriert die Engine mit de-DE, continuous, interimResults', async () => {
+  it('konfiguriert die Engine mit de-DE, continuous, interimResults, maxAlternatives', async () => {
     const { rec, capture } = setup();
     await capture.start();
     expect(rec.lang).toBe('de-DE');
     expect(rec.continuous).toBe(true);
     expect(rec.interimResults).toBe(true);
+    expect(rec.maxAlternatives).toBe(3); // Default
     expect(rec.startCount).toBe(1);
+  });
+
+  it('übernimmt eine eigene maxAlternatives-Vorgabe', async () => {
+    const rec = new MockRecognition();
+    const capture = new SpeechCapture({ createRecognition: () => rec, maxAlternatives: 5 });
+    await capture.start();
+    expect(rec.maxAlternatives).toBe(5);
+  });
+
+  it('reicht weitere Hypothesen als alternatives durch (ohne die Primärhypothese)', async () => {
+    const { rec, capture } = setup();
+    const segs: TranscriptSegment[] = [];
+    capture.onSegment((seg) => segs.push(seg));
+    await capture.start();
+
+    rec.emitResult(0, [
+      { transcript: 'häuser', isFinal: true, alternatives: ['heiser', 'häuser', 'reiser'] },
+    ]);
+
+    expect(segs[0]?.text).toBe('häuser');
+    // dedupliziert (das doppelte "häuser" entfällt) und ohne die Primärhypothese:
+    expect(segs[0]?.alternatives).toEqual(['heiser', 'reiser']);
+  });
+
+  it('hängt die Konfidenz der Primärhypothese ans Segment', async () => {
+    const { rec, capture } = setup();
+    const segs: TranscriptSegment[] = [];
+    capture.onSegment((seg) => segs.push(seg));
+    await capture.start();
+
+    rec.emitResult(0, [{ transcript: 'hallo', isFinal: true, confidence: 0.92 }]);
+    expect(segs[0]?.confidence).toBeCloseTo(0.92);
+  });
+
+  it('verwirft finale Ergebnisse unter minConfidence, Interim bleibt unberührt', async () => {
+    const rec = new MockRecognition();
+    const capture = new SpeechCapture({ createRecognition: () => rec, minConfidence: 0.5 });
+    const texts: string[] = [];
+    capture.onSegment((seg) => texts.push(seg.text));
+    await capture.start();
+
+    rec.emitResult(0, [{ transcript: 'unsicher', isFinal: true, confidence: 0.2 }]); // verworfen
+    rec.emitResult(0, [{ transcript: 'sicher', isFinal: true, confidence: 0.8 }]); // behalten
+    rec.emitResult(0, [{ transcript: 'interim', isFinal: false, confidence: 0 }]); // behalten
+
+    expect(texts).toEqual(['sicher', 'interim']);
   });
 
   it('vergibt pro Result-Index eine stabile segmentId (interim → final)', async () => {

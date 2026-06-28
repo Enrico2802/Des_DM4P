@@ -58,10 +58,10 @@ export class SessionService {
     });
 
     // B1 → B2/B3/B4 → B5 (Live-Mikrofon). Interim-Updates ersetzen via segmentId.
-    this.rec.segments.subscribe(({ text, isFinal, segmentId }) => {
+    this.rec.segments.subscribe(({ text, isFinal, segmentId, alternatives, confidence }) => {
       this.transcript.set(text);
       this.isPlaceholder.set(false);
-      const signs = this.pipeline.toSigns(text, segmentId);
+      const signs = this.pipeline.toSigns(text, segmentId, { alternatives, confidence });
       this.queue.replaceSegment(segmentId, signs, isFinal);
       this.preloadUpcoming();
     });

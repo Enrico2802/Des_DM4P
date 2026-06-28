@@ -6,8 +6,11 @@
  * Lookup-Kaskade:
  *   1. exakter Lookup der normalisierten Form,
  *   2. einfache deutsche Lemma-Heuristik (Flexionsendungen kürzen, erneut suchen),
- *   3. Fallback an B4 (Fingeralphabet),
- *   4. sonst „unknown" (Wort enthält nicht buchstabierbare Zeichen).
+ *   3. ASR-Alternativen (token.candidates): exakt + Lemma — wählt die Hypothese,
+ *      die tatsächlich als Gebärde existiert (Qualitätsgewinn bei Homophonen),
+ *   4. Korrektur/Fuzzy (B3.5) auf Primärform und Alternativen,
+ *   5. Fallback an B4 (Fingeralphabet),
+ *   6. sonst „unknown" (Wort enthält nicht buchstabierbare Zeichen).
  */
 import type { LookupFn, SignItem, Token } from '../types';
 import { fingerspell, isFingerspellable } from '../fingerspelling';
@@ -40,26 +43,56 @@ function resolveByLemma(normalized: string, lookup: LookupFn): string | null {
   return null;
 }
 
+export interface ResolveOptions {
+  /**
+   * Korrektur-/Fuzzy-Funktion aus B3.5: normalisierte Form → korrigierte Form
+   * (Wörterbuchschlüssel) oder null. Wird nur genutzt, wenn Primärform und
+   * Alternativen keinen Treffer liefern.
+   */
+  correct?: (normalized: string) => string | null;
+}
+
+/** Versucht exakten und Lemma-Treffer für eine normalisierte Form. */
+function lookupExactOrLemma(normalized: string, lookup: LookupFn): string | null {
+  const exact = lookup(normalized);
+  if (exact) return exact.imageUrl;
+  return resolveByLemma(normalized, lookup);
+}
+
 /**
  * Löst ein Token zu einem SignItem auf.
  *
- * @param token  normalisiertes Token aus B2.
- * @param lookup Wörterbuch-Lookup aus B0 (case-insensitive erwartet).
+ * @param token   normalisiertes Token aus B2 (ggf. mit `candidates`).
+ * @param lookup  Wörterbuch-Lookup aus B0 (case-insensitive erwartet).
+ * @param options optionale Korrektur-Funktion (B3.5).
  */
-export function resolve(token: Token, lookup: LookupFn): SignItem {
-  // 1) Exakter Treffer.
-  const exact = lookup(token.normalized);
-  if (exact) return sign(token, exact.imageUrl);
+export function resolve(token: Token, lookup: LookupFn, options: ResolveOptions = {}): SignItem {
+  // 1) + 2) Primärform: exakt, dann Lemma-Heuristik.
+  const primaryUrl = lookupExactOrLemma(token.normalized, lookup);
+  if (primaryUrl) return sign(token, primaryUrl);
 
-  // 2) Lemma-Heuristik.
-  const lemmaUrl = resolveByLemma(token.normalized, lookup);
-  if (lemmaUrl) return sign(token, lemmaUrl);
+  // 3) ASR-Alternativen: erste Hypothese nehmen, die als Gebärde existiert.
+  for (const candidate of token.candidates ?? []) {
+    const candUrl = lookupExactOrLemma(candidate, lookup);
+    if (candUrl) return sign(token, candUrl);
+  }
 
-  // 3) Fingeralphabet-Fallback.
+  // 4) Korrektur/Fuzzy auf Primärform und Alternativen.
+  if (options.correct) {
+    for (const form of [token.normalized, ...(token.candidates ?? [])]) {
+      const corrected = options.correct(form);
+      if (corrected) {
+        const hit = lookup(corrected);
+        if (hit) return sign(token, hit.imageUrl);
+      }
+    }
+  }
+
+  // 5) Fingeralphabet-Fallback.
   if (isFingerspellable(token.normalized)) {
     return fingerspell(token);
   }
 
-  // 4) Weder Gebärde noch buchstabierbar.
+  // 6) Weder Gebärde noch buchstabierbar.
   return { kind: 'unknown', token };
 }

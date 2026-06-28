@@ -109,21 +109,14 @@ describe('B5 DisplayQueue', () => {
   describe('Backpressure (> maxQueue)', () => {
     it('verwirft die ältesten NICHT-finalen Items', () => {
       const q = new DisplayQueue({ maxQueue: 3, msPerSign: 1000 });
-      // Realistisches Streaming: erst läuft i0, dann strömen weitere interim
-      // Items nach und lassen die Queue überlaufen.
-      q.enqueue([sign('i0')], false); // wird sofort current, Queue leer
-      q.enqueue([sign('i1'), sign('i2'), sign('i3'), sign('i4')], false); // Queue: 4 (> 3)
+      // Interim-Items strömen nach und lassen die Queue überlaufen. Interim wird
+      // (noch) nicht dauerhaft angezeigt, landet also komplett in der Queue.
+      q.enqueue([sign('i1'), sign('i2'), sign('i3'), sign('i4')], false); // 4 (> 3)
 
-      // current = i0; ältestes wartendes nicht-finales Item (i1) wird verworfen.
-      expect(q.current?.token.normalized).toBe('i0');
+      expect(q.current).toBeNull(); // interim wird nicht angezeigt
       expect(q.pending).toBe(3);
-
-      const order: string[] = [q.current!.token.normalized];
-      for (let i = 0; i < 3; i++) {
-        vi.advanceTimersByTime(1000);
-        order.push(q.current!.token.normalized);
-      }
-      expect(order).toEqual(['i0', 'i2', 'i3', 'i4']); // i1 fehlt
+      // Das älteste nicht-finale Item (i1) wurde verworfen.
+      expect(q.upcoming(3).map((s) => s.token.normalized)).toEqual(['i2', 'i3', 'i4']);
     });
 
     it('behält finale Items, auch wenn die Queue überläuft', () => {
@@ -139,22 +132,70 @@ describe('B5 DisplayQueue', () => {
     });
   });
 
-  describe('replaceSegment (Interim-Korrektur)', () => {
-    it('ersetzt noch nicht angezeigte Items eines Segments', () => {
+  describe('replaceSegment (Interim-Korrektur + Finalitäts-Gate)', () => {
+    it('zeigt interim nichts an und gibt erst die finale Korrektur aus', () => {
       const q = new DisplayQueue({ msPerSign: 1000 });
-      // Segment "seg1" interim: zwei Wörter.
+      const seen: string[] = [];
+      q.onTick((c) => seen.push(c.token.normalized));
+      // Segment "seg1" interim: zwei Wörter — noch NICHTS angezeigt.
       q.enqueue([sign('hallo', 'seg1'), sign('wlt', 'seg1')], false);
-      expect(q.current?.token.normalized).toBe('hallo'); // bereits angezeigt
+      expect(q.current).toBeNull();
 
-      // Finale Erkennung korrigiert "wlt" -> "welt" (nur das wartende Item).
-      q.replaceSegment('seg1', [sign('welt', 'seg1')], true);
+      // Finale Erkennung korrigiert "wlt" -> "welt" und bestätigt das Segment.
+      q.replaceSegment('seg1', [sign('hallo', 'seg1'), sign('welt', 'seg1')], true);
+      expect(q.current?.token.normalized).toBe('hallo'); // jetzt final -> angezeigt
       vi.advanceTimersByTime(1000);
       expect(q.current?.token.normalized).toBe('welt');
+      expect(seen).toEqual(['hallo', 'welt']); // jede Gebärde genau einmal
+    });
+
+    it('zeigt voreilig falsch geratene Interim-Ergebnisse NICHT an ("test 2 3"-Geist)', () => {
+      // Genau der gemeldete Fehler: Erkennung rät erst "test 2 3", korrigiert
+      // dann zu "test 1 2 3". Das falsche Zwischenergebnis darf nie erscheinen.
+      const q = new DisplayQueue({ msPerSign: 100 });
+      const seen: string[] = [];
+      q.onTick((c) => seen.push(c.token.normalized));
+      const seg = (words: string[]) => words.map((w) => sign(w, 's'));
+
+      q.replaceSegment('s', seg(['test', '2', '3']), false); // interim, falsch
+      vi.advanceTimersByTime(500);
+      expect(q.current).toBeNull(); // nichts angezeigt
+
+      q.replaceSegment('s', seg(['test', '1', '2', '3']), true); // final, korrekt
+      expect(q.current?.token.normalized).toBe('test');
+      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
+      expect(seen).toEqual(['test', '1', '2', '3']); // kein "2,3"-Geist
+    });
+
+    it('vervielfacht wachsende Interim-Ergebnisse NICHT ("Test 1 2 3"-Regression)', () => {
+      // Realer Live-Pfad: jedes Interim-Update liefert den GANZEN bisher
+      // erkannten Text. Erst das finale Ergebnis wird ausgegeben.
+      const q = new DisplayQueue({ msPerSign: 100 });
+      const seen: string[] = [];
+      q.onTick((c) => seen.push(c.token.normalized));
+      const seg = (words: string[]) => words.map((w) => sign(w, 's'));
+
+      q.replaceSegment('s', seg(['test']), false);
+      q.replaceSegment('s', seg(['test', '1']), false);
+      q.replaceSegment('s', seg(['test', '1', '2']), false);
+      vi.advanceTimersByTime(500);
+      expect(q.current).toBeNull(); // interim → noch nichts
+
+      q.replaceSegment('s', seg(['test', '1', '2', '3']), true); // final
+      expect(q.current?.token.normalized).toBe('test');
+      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
+
+      // Genau die erkannte Folge, jede Gebärde genau einmal.
+      expect(seen).toEqual(['test', '1', '2', '3']);
     });
 
     it('verhält sich wie enqueue, wenn das Segment noch nicht existiert', () => {
       const q = new DisplayQueue({ msPerSign: 1000 });
-      q.replaceSegment('neu', [sign('eins', 'neu'), sign('zwei', 'neu')]);
+      q.replaceSegment('neu', [sign('eins', 'neu'), sign('zwei', 'neu')], true);
       expect(q.current?.token.normalized).toBe('eins');
       vi.advanceTimersByTime(1000);
       expect(q.current?.token.normalized).toBe('zwei');

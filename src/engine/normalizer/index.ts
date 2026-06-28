@@ -69,3 +69,45 @@ export function normalize(
   }
   return tokens;
 }
+
+/**
+ * Wie {@link normalize}, reichert die Tokens aber mit `candidates` (alternative
+ * normalisierte Formen pro Wortposition) und der `confidence` des Segments an.
+ *
+ * Ausrichtung der Alternativen: Die Web Speech API liefert GANZE Sätze als
+ * Alternativen, nicht einzelne Wörter. Wir richten daher nur Alternativen aus,
+ * die nach der Normalisierung dieselbe Tokenzahl wie die Primärhypothese haben
+ * — dann ist die i-te Alternative der i-ten Primärposition zuzuordnen. Das deckt
+ * den häufigen Fall „ein Wort anders erkannt" (Homophone) sauber ab und
+ * vermeidet Fehlausrichtungen bei abweichender Wortzahl.
+ */
+export function normalizeWithAlternatives(
+  segment: TranscriptSegment,
+  segmentId: string,
+  options: NormalizeOptions = {},
+): Token[] {
+  const tokens = normalize(segment, segmentId, options);
+  if (tokens.length === 0) return tokens;
+
+  // Pro Position eine Liste alternativer normalisierter Formen sammeln.
+  const perPosition: string[][] = tokens.map(() => []);
+  for (const altText of segment.alternatives ?? []) {
+    const altTokens = normalize({ ...segment, text: altText }, segmentId, options);
+    if (altTokens.length !== tokens.length) continue; // nur deckungsgleiche ausrichten
+    altTokens.forEach((altTok, i) => {
+      const cand = altTok.normalized;
+      const primary = tokens[i]?.normalized;
+      const list = perPosition[i];
+      if (list && cand !== primary && !list.includes(cand)) list.push(cand);
+    });
+  }
+
+  return tokens.map((token, i) => {
+    const candidates = perPosition[i] ?? [];
+    return {
+      ...token,
+      ...(candidates.length ? { candidates } : {}),
+      ...(typeof segment.confidence === 'number' ? { confidence: segment.confidence } : {}),
+    };
+  });
+}

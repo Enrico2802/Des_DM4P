@@ -8,6 +8,10 @@ export interface RecognizedSegment {
   text: string;
   isFinal: boolean;
   segmentId: string;
+  /** Weitere Erkennungs-Hypothesen (best-first, ohne `text`) — für B3. */
+  alternatives?: string[];
+  /** Konfidenz der Primärhypothese (0..1), v. a. bei finalen Ergebnissen. */
+  confidence?: number;
 }
 
 /**
@@ -41,7 +45,13 @@ export class RecognitionService {
     // Pipeline (inkl. B5-setTimeout) in die Angular-Zone → Echtzeit-Anzeige.
     this.capture.onSegment((segment, segmentId) => {
       this.zone.run(() => {
-        this.segment$.next({ text: segment.text, isFinal: segment.isFinal, segmentId });
+        this.segment$.next({
+          text: segment.text,
+          isFinal: segment.isFinal,
+          segmentId,
+          ...(segment.alternatives?.length ? { alternatives: segment.alternatives } : {}),
+          ...(typeof segment.confidence === 'number' ? { confidence: segment.confidence } : {}),
+        });
       });
     });
     this.capture.onStateChange((state, error) => {
